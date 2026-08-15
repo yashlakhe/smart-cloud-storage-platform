@@ -1,481 +1,156 @@
 # Smart Cloud Storage Platform
 
-A cloud-native file storage platform designed to provide secure,
-scalable file management with cloud object storage, metadata management,
-access control, sharing, storage analytics, and an extensible
-intelligent storage optimization layer.
+A cloud-native file storage platform designed to provide secure, scalable file management with cloud object storage, metadata management, access control, sharing, storage analytics, and an extensible intelligent storage optimization layer.
 
-> **Project status:** In active development
+> **Current Phase:** Phase 1 — Development Infrastructure (VERIFIED COMPLETE)
 
-------------------------------------------------------------------------
+---
 
 ## Overview
 
-The Smart Cloud Storage Platform is a full-stack cloud application that
-allows users to securely store, organize, access, download, and share
-files through a web interface.
+The Smart Cloud Storage Platform is built around a clear separation of concerns:
+- **Application metadata** stored in PostgreSQL.
+- **Actual file objects** stored in Amazon S3.
+- **REST API, business logic, and security** provided by FastAPI (Python).
+- **User interface** provided by React + TypeScript (Vite + Tailwind CSS v3).
 
-The project is designed around a clear separation between:
+Phase 1 establishes a clean, reproducible development infrastructure connecting React → FastAPI → PostgreSQL and FastAPI → Amazon S3 using Docker Compose.
 
--   **Application metadata** stored in PostgreSQL.
--   **Actual file objects** stored in Amazon S3.
--   **Business logic and security** handled by a FastAPI backend.
--   **User interaction** handled by a React + TypeScript frontend.
+---
 
-The initial goal is to build a reliable cloud-storage MVP. Once the core
-platform is stable, an intelligent storage layer will be introduced to
-investigate areas such as usage-aware storage optimization,
-deduplication, predictive access analysis, and cost-aware storage
-decisions.
-
-------------------------------------------------------------------------
-
-## Key Features
-
-### Core Storage
-
--   Secure user registration and authentication.
--   File upload to cloud object storage.
--   File listing and metadata.
--   File download.
--   File deletion.
--   Folder-based organization.
--   File search.
--   File sharing.
--   Access-control enforcement.
-
-### Storage Management
-
--   Storage capacity tracking.
--   Used and available storage.
--   File count and type distribution.
--   Recent activity.
--   File access logging.
-
-### Planned Intelligent Layer
-
-The architecture is designed to support future intelligent storage
-capabilities such as:
-
--   Usage-aware storage tiering.
--   Duplicate detection.
--   Access-pattern analysis.
--   Cost-aware storage recommendations.
--   Adaptive compression.
--   Predictive file-access analysis.
--   Self-optimizing storage policies.
-
-These capabilities are intentionally excluded from the initial MVP and
-will be evaluated after the core platform is stable.
-
-------------------------------------------------------------------------
-
-## Architecture
-
-``` text
-                         Internet
-                            |
-                            v
-                  +-------------------+
-                  |  React Frontend   |
-                  | TypeScript + UI   |
-                  +---------+---------+
-                            |
-                         HTTPS
-                            |
-                            v
-                  +-------------------+
-                  |   FastAPI Backend |
-                  |   REST API        |
-                  +---------+---------+
-                            |
-                 +----------+----------+
-                 |                     |
-                 v                     v
-        +----------------+    +----------------+
-        |   PostgreSQL   |    |   Amazon S3    |
-        |                |    |                |
-        | Users          |    | Actual Files   |
-        | File Metadata  |    | Objects        |
-        | Folders        |    |                |
-        | Permissions    |    |                |
-        | Access Logs    |    |                |
-        +----------------+    +----------------+
-                 |
-                 v
-        +--------------------+
-        | Future Smart Layer |
-        |                    |
-        | Analytics          |
-        | Deduplication      |
-        | Tiering            |
-        | Prediction         |
-        | Optimization       |
-        +--------------------+
-```
-
-### Storage Model
-
-The platform intentionally separates file content from file metadata.
-
-``` text
-PostgreSQL
-    |
-    +-- User
-    +-- File metadata
-    +-- Folder
-    +-- Sharing permissions
-    +-- Activity logs
-
-Amazon S3
-    |
-    +-- Actual file objects
-```
-
-This separation allows the application layer and object-storage layer to
-scale independently and provides a foundation for future storage
-optimization.
-
-------------------------------------------------------------------------
-
-## Technology Stack
-
-  -----------------------------------------------------------------------
-  Layer                   Technology              Purpose
-  ----------------------- ----------------------- -----------------------
-  Frontend                React                   User interface
-
-  Frontend Language       TypeScript              Type-safe frontend
-                                                  development
-
-  Styling                 Tailwind CSS            UI styling
-
-  Backend                 FastAPI                 REST API and business
-                                                  logic
-
-  Backend Language        Python                  Application and future
-                                                  intelligence layer
-
-  Validation              Pydantic                Request/response
-                                                  validation
-
-  ORM                     SQLAlchemy              Database access
-
-  Database                PostgreSQL              Metadata and relational
-                                                  data
-
-  Object Storage          Amazon S3               Cloud file storage
-
-  Authentication          JWT + secure password   User authentication
-                          hashing                 
-
-  Containerization        Docker                  Reproducible
-                                                  environments
-
-  Orchestration           Docker Compose          Local multi-service
-                                                  development
-
-  Version Control         Git + GitHub            Source control
-
-  Cloud Platform          AWS                     Cloud infrastructure
-
-  Monitoring              CloudWatch / equivalent Operational monitoring
-  -----------------------------------------------------------------------
-
-------------------------------------------------------------------------
-
-## Core Workflow
-
-### File Upload
-
-``` text
-User
- |
- | Select file
- v
-React Frontend
- |
- | Upload request
- v
-FastAPI
- |
- +--> Authenticate user
- |
- +--> Validate request
- |
- +--> Generate storage key
- |
- +--> Upload file -----------------> Amazon S3
- |
- +--> Store metadata -------------> PostgreSQL
- |
- v
-Upload successful
-```
-
-### File Download
-
-The preferred architecture uses short-lived presigned object-storage
-URLs where appropriate:
-
-``` text
-User
- |
- v
-React
- |
- v
-FastAPI
- |
- +--> Authenticate
- +--> Authorize
- +--> Locate file metadata
- +--> Generate temporary S3 URL
- |
- v
-React
- |
- v
-Amazon S3
- |
- v
-File download
-```
-
-This avoids unnecessarily routing large file transfers through the
-application server.
-
-------------------------------------------------------------------------
-
-## Security
-
-Security is treated as a core architectural concern.
-
-The platform is designed to include:
-
--   Secure password hashing.
--   JWT-based authentication.
--   Backend-enforced authorization.
--   Ownership-based file access.
--   Controlled file sharing.
--   Private cloud objects.
--   Short-lived presigned download URLs.
--   Environment-based secrets.
--   Input and upload validation.
--   Protection against unauthorized file access.
-
-The frontend is never treated as a security boundary. Authorization
-decisions are made by the backend.
-
-------------------------------------------------------------------------
-
-## Project Structure
-
-The public repository will evolve toward the following structure:
-
-``` text
-smart-cloud-storage-platform/
-│
-├── backend/
-│   ├── app/
-│   └── tests/
-│
-├── frontend/
-│   └── src/
-│
-├── README.md
-├── .gitignore
-└── docker-compose.yml
-```
-
-Internal AI development documents are intentionally kept outside the
-public repository.
-
-------------------------------------------------------------------------
-
-## Development Roadmap
-
-### Phase 1 --- Infrastructure
-
--   [ ] Initialize React frontend.
--   [ ] Initialize FastAPI backend.
--   [ ] Configure PostgreSQL.
--   [ ] Configure Docker Compose.
--   [ ] Configure Amazon S3.
--   [ ] Establish service connectivity.
-
-### Phase 2 --- Authentication
-
--   [ ] User registration.
--   [ ] Secure password hashing.
--   [ ] Login.
--   [ ] JWT authentication.
--   [ ] Protected API routes.
--   [ ] Frontend authentication flow.
-
-### Phase 3 --- Core Storage
-
--   [ ] File metadata schema.
--   [ ] S3 object-key strategy.
--   [ ] File upload.
--   [ ] File listing.
--   [ ] File metadata.
--   [ ] File download.
--   [ ] File deletion.
--   [ ] Failure handling.
-
-### Phase 4 --- File Management
-
--   [ ] Folders.
--   [ ] File navigation.
--   [ ] Search.
--   [ ] File sharing.
--   [ ] Permissions.
--   [ ] Share revocation.
-
-### Phase 5 --- Analytics
-
--   [ ] Storage usage.
--   [ ] File statistics.
--   [ ] Storage visualization.
--   [ ] Activity logging.
--   [ ] Recent activity.
-
-### Phase 6 --- Deployment and Hardening
-
--   [ ] Automated tests.
--   [ ] Security testing.
--   [ ] Error handling.
--   [ ] Production configuration.
--   [ ] AWS deployment.
--   [ ] Monitoring.
--   [ ] End-to-end validation.
-
-### Phase 7 --- Intelligent Storage Layer
-
-Potential research directions:
-
--   [ ] Duplicate detection.
--   [ ] Access-pattern analysis.
--   [ ] Intelligent storage tiering.
--   [ ] Cost-aware recommendations.
--   [ ] Adaptive compression.
--   [ ] Predictive storage optimization.
-
-The final novelty direction will be selected after the MVP is
-operational.
-
-------------------------------------------------------------------------
-
-## Local Development
-
-The project is being developed around a containerized local environment.
-
-Expected services:
-
-``` text
-Frontend
-   |
-Backend
-   |
-PostgreSQL
-   |
-Amazon S3
-```
+## Local Development Setup
 
 ### Prerequisites
-
-The development environment will require:
-
--   Git
--   Python
--   Node.js
--   Docker
--   Docker Compose
--   AWS account/access to S3
+- **Python**: 3.11 or higher
+- **Node.js**: 20 or higher (with `npm`)
+- **Docker & Docker Compose** (for containerized setup)
 
 ### Environment Configuration
 
-Secrets and environment-specific configuration should be stored outside
-source control.
+Copy `.env.example` to create your local `.env` file:
 
-Example variables:
+```bash
+cp .env.example .env
+```
 
-``` text
-DATABASE_URL=
-AWS_REGION=
+Default local environment variables:
+```env
+# Host local development database URL
+DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/smartcloudstorage
+
+# AWS S3 Configuration (Optional for initial startup)
+AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
 S3_BUCKET_NAME=
-JWT_SECRET=
+
+# CORS Origin Configuration
+FRONTEND_ORIGIN=http://localhost:5173
+
+# Frontend API Endpoint
+VITE_API_URL=http://localhost:8000
 ```
 
-Do not commit real credentials.
+---
 
-A sanitized `.env.example` will be added to the repository during
-infrastructure setup.
+## Running Locally (Host Mode)
 
-------------------------------------------------------------------------
+### 1. Backend Setup (FastAPI)
 
-## API
+```bash
+cd backend
+python -m venv .venv
 
-The backend will expose REST APIs grouped approximately as:
+# On Windows:
+.venv\Scripts\activate
 
-``` text
-/auth
-/users
-/files
-/folders
-/shares
-/storage
-/activity
+# On Linux/macOS:
+source .venv/bin/activate
+
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
 ```
 
-Interactive API documentation will be available through FastAPI/OpenAPI
-during development.
+The backend server will run at `http://localhost:8000`.
 
-The exact API contract will evolve as implementation progresses.
+### 2. Frontend Setup (React + TypeScript)
 
-------------------------------------------------------------------------
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-## Engineering Principles
+The frontend application will run at `http://localhost:5173`.
 
-The project follows several engineering principles:
+---
 
-1.  **Cloud storage is separate from metadata storage.**
-2.  **Security decisions are enforced server-side.**
-3.  **The MVP is a modular monolith rather than premature
-    microservices.**
-4.  **Large file transfers should use object-storage capabilities
-    efficiently.**
-5.  **Infrastructure complexity must have a clear purpose.**
-6.  **Features are implemented incrementally and tested before
-    expansion.**
-7.  **Future intelligence must solve a measurable storage problem rather
-    than exist only as an AI feature.**
+## Running with Docker Compose
 
-------------------------------------------------------------------------
+To spin up all services (PostgreSQL, FastAPI Backend, React Frontend) in containerized mode:
 
-## Project Goals
+```bash
+docker compose up --build
+```
 
-This project aims to demonstrate practical understanding of:
+### Docker Network Architecture
+- **`db`**: PostgreSQL 15 container (`postgres:15-alpine`) with health check (`pg_isready`).
+- **`backend`**: FastAPI backend container connecting to database at `db:5432`.
+- **`frontend`**: React Vite container binding to `0.0.0.0:5173` for host access.
 
--   Cloud computing.
--   Object storage.
--   REST API architecture.
--   Full-stack application development.
--   Database design.
--   Authentication and authorization.
--   Cloud resource management.
--   Containerization.
--   Cloud deployment.
--   Storage analytics.
--   Intelligent resource optimization.
+---
 
-The long-term goal is to evolve the platform from a conventional
-cloud-storage application into a **self-optimizing storage system**
-while maintaining a clean and measurable architecture.
+## Application URLs & Endpoints
 
-------------------------------------------------------------------------
+| Resource | URL | Purpose |
+| :--- | :--- | :--- |
+| **Frontend Application** | `http://localhost:5173` | React application shell displaying real-time infrastructure connection status |
+| **Backend API Root** | `http://localhost:8000/` | Application identifier & phase metadata |
+| **Health Check API** | `http://localhost:8000/health` | Service status diagnostic endpoint (Backend, Database, S3) |
+| **Interactive API Docs** | `http://localhost:8000/docs` | Swagger UI OpenAPI documentation |
 
+---
 
+## Health Check API Specification
+
+`GET /health` **always returns HTTP 200 OK** whenever the backend process is running. Downstream service status is reported dynamically in the JSON body:
+
+### Healthy Status (All services connected)
+```json
+{
+  "status": "healthy",
+  "services": {
+    "backend": "running",
+    "database": "connected",
+    "s3": "connected"
+  }
+}
+```
+
+### Degraded Status (Dependency unconfigured or unreachable)
+```json
+{
+  "status": "degraded",
+  "services": {
+    "backend": "running",
+    "database": "disconnected",
+    "s3": "unconfigured"
+  }
+}
+```
+
+- **Resilience Guarantee**: Missing AWS S3 credentials or PostgreSQL connectivity timeouts will **NOT crash** the FastAPI application process.
+- **Privacy & Security**: AWS credentials, secret keys, and database passwords are never exposed in API responses, logs, or UI output.
+
+---
+
+## Current Development Roadmap
+
+- [x] **Phase 1 — Development Infrastructure**
+  - [x] FastAPI backend (`GET /`, `GET /health`, `/docs`)
+  - [x] React + TypeScript + Tailwind CSS v3 frontend shell
+  - [x] React → FastAPI REST communication
+  - [x] PostgreSQL connection health check (`SELECT 1`)
+  - [x] Amazon S3 safe diagnostic connection check (`head_bucket`)
+  - [x] Docker Compose multi-service definition
+- [ ] **Phase 2 — Authentication and Users** (Pending explicit review and authorization)
