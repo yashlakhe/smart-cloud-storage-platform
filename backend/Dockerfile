@@ -15,8 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application source code
+# Copy application source code and Alembic migration infrastructure
 COPY app ./app
+COPY alembic.ini .
+COPY alembic ./alembic
 
 EXPOSE 8000
 

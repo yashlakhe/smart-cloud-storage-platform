@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     # App Information
     APP_NAME: str = "Smart Cloud Storage Platform"
     APP_VERSION: str = "0.1.0"
-    PHASE: str = "Phase 1 - Development Infrastructure"
+    PHASE: str = "Phase 2 - Authentication and Users"
 
     # Database Configuration (Host default fallback)
     DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/smartcloudstorage"
@@ -18,6 +18,11 @@ class Settings(BaseSettings):
 
     # CORS Configuration
     FRONTEND_ORIGIN: str = "http://localhost:5173"
+
+    # Authentication Configuration (Phase 2 Foundation)
+    JWT_SECRET: str | None = None
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     model_config = SettingsConfigDict(
         env_file=".env",
