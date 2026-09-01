@@ -12,6 +12,10 @@ Rules.md
 .env.*
 !.env.example
 
+# Storage Data (Local fallback)
+storage_data/
+backend/storage_data/
+
 # Python
 .venv/
 venv/
@@ -34,4 +38,4 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 .idea/
-.vscode/
+.vscode/

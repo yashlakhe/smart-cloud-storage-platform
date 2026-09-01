@@ -25,6 +25,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/smartcloudstorage
       FRONTEND_ORIGIN: http://localhost:5173
+      JWT_SECRET: ${JWT_SECRET:-smart-cloud-storage-super-secure-jwt-secret-key-change-in-production}
       AWS_REGION: ${AWS_REGION:-us-east-1}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}

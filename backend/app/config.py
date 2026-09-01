@@ -1,11 +1,12 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import os
 
 
 class Settings(BaseSettings):
     # App Information
     APP_NAME: str = "Smart Cloud Storage Platform"
     APP_VERSION: str = "0.1.0"
-    PHASE: str = "Phase 2 - Authentication and Users"
+    PHASE: str = "Phase 2-4 Complete"
 
     # Database Configuration (Host default fallback)
     DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/smartcloudstorage"
@@ -19,10 +20,14 @@ class Settings(BaseSettings):
     # CORS Configuration
     FRONTEND_ORIGIN: str = "http://localhost:5173"
 
-    # Authentication Configuration (Phase 2 Foundation)
-    JWT_SECRET: str | None = None
+    # Authentication Configuration
+    JWT_SECRET: str = "smart-cloud-storage-super-secure-jwt-secret-key-change-in-production"
     JWT_ALGORITHM: str = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
+
+    # File Storage Constraints
+    MAX_UPLOAD_SIZE_BYTES: int = 100 * 1024 * 1024  # 100 MB
+    LOCAL_STORAGE_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "storage_data")
 
     model_config = SettingsConfigDict(
         env_file=".env",
