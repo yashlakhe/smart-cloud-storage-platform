@@ -51,9 +51,10 @@ class FileShare(Base):
     )
 
     # Relationships
-    file = relationship("FileRecord", backref="shares")
+    file = relationship("FileRecord", back_populates="shares", passive_deletes=True)
     owner = relationship("User", foreign_keys=[owner_id], backref="owned_shares")
     shared_with_user = relationship("User", foreign_keys=[shared_with_user_id], backref="received_shares")
 
     def __repr__(self) -> str:
+
         return f"<FileShare id={self.id} file_id={self.file_id} shared_with={self.shared_with_user_id} perm={self.permission}>"

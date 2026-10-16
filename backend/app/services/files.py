@@ -10,9 +10,11 @@ from app.models.base import get_utc_now
 from app.models.file import FileRecord
 from app.models.folder import Folder
 from app.models.share import FileShare
+from app.services.activity import log_activity
 from app.services.folders import get_folder, FolderNotFoundError
 from app.services.shares import get_user_file_permission
 from app.services.storage import storage_service
+
 
 
 class FileNotFoundError(Exception):
@@ -100,7 +102,19 @@ def upload_file(
         storage_service.delete_file_object(storage_key)
         raise FileOperationError(f"Database error saving file metadata: {exc}") from exc
 
+    # Log upload event
+    log_activity(
+        db=db,
+        user_id=user_id,
+        action="UPLOAD",
+        resource_type="file",
+        resource_id=file_record.id,
+        resource_name=file_record.original_filename,
+        details=f"Uploaded {file_record.original_filename} ({file_record.size} bytes)",
+    )
+
     return file_record
+
 
 
 def list_files(
@@ -165,10 +179,28 @@ def get_download_data(
     )
 
     if presigned_url:
+        log_activity(
+            db=db,
+            user_id=user_id,
+            action="DOWNLOAD",
+            resource_type="file",
+            resource_id=file_record.id,
+            resource_name=file_record.original_filename,
+            details=f"Downloaded via S3 presigned URL ({file_record.size} bytes)",
+        )
         return file_record, presigned_url, None
 
     # Fallback to local byte stream
     file_bytes = storage_service.get_file_bytes(file_record.storage_key)
+    log_activity(
+        db=db,
+        user_id=user_id,
+        action="DOWNLOAD",
+        resource_type="file",
+        resource_id=file_record.id,
+        resource_name=file_record.original_filename,
+        details=f"Streamed file contents ({file_record.size} bytes)",
+    )
     return file_record, None, file_bytes
 
 
@@ -193,9 +225,21 @@ def rename_file(
     if file_record is None:
         raise FileNotFoundError("File not found or not owned by user")
 
+    old_name = file_record.original_filename
     file_record.original_filename = clean_name
     db.commit()
     db.refresh(file_record)
+
+    log_activity(
+        db=db,
+        user_id=user_id,
+        action="RENAME",
+        resource_type="file",
+        resource_id=file_record.id,
+        resource_name=clean_name,
+        details=f"Renamed file from '{old_name}' to '{clean_name}'",
+    )
+
     return file_record
 
 
@@ -206,8 +250,10 @@ def move_file(
     new_folder_id: uuid.UUID | None,
 ) -> FileRecord:
     """Move a file to a new folder (owner only)."""
+    target_folder_name = "Root"
     if new_folder_id is not None:
-        get_folder(db, user_id, new_folder_id)
+        folder = get_folder(db, user_id, new_folder_id)
+        target_folder_name = folder.name
 
     result = db.execute(
         select(FileRecord).where(
@@ -222,6 +268,17 @@ def move_file(
     file_record.folder_id = new_folder_id
     db.commit()
     db.refresh(file_record)
+
+    log_activity(
+        db=db,
+        user_id=user_id,
+        action="MOVE",
+        resource_type="file",
+        resource_id=file_record.id,
+        resource_name=file_record.original_filename,
+        details=f"Moved file to '{target_folder_name}'",
+    )
+
     return file_record
 
 
@@ -241,12 +298,26 @@ def delete_file(
     if file_record is None:
         raise FileNotFoundError("File not found or not owned by user")
 
+    filename_snapshot = file_record.original_filename
+    size_snapshot = file_record.size
+
     # 1. Delete object from storage
     storage_service.delete_file_object(file_record.storage_key)
 
     # 2. Delete database record
     db.delete(file_record)
     db.commit()
+
+    log_activity(
+        db=db,
+        user_id=user_id,
+        action="DELETE",
+        resource_type="file",
+        resource_id=file_id,
+        resource_name=filename_snapshot,
+        details=f"Permanently deleted file ({size_snapshot} bytes)",
+    )
+
 
 
 def get_storage_stats(

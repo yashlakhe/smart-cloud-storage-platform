@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     # App Information
     APP_NAME: str = "Smart Cloud Storage Platform"
     APP_VERSION: str = "0.1.0"
-    PHASE: str = "Phase 2-4 Complete"
+    PHASE: str = "Phase 5 Complete"
 
     # Database Configuration (Host default fallback)
     DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/smartcloudstorage"
@@ -25,15 +25,17 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
 
-    # File Storage Constraints
+    # File Storage Constraints & Quota
+    DEFAULT_STORAGE_QUOTA_BYTES: int = 10 * 1024 * 1024 * 1024  # 10 GB
     MAX_UPLOAD_SIZE_BYTES: int = 100 * 1024 * 1024  # 100 MB
     LOCAL_STORAGE_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "storage_data")
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "backend/.env", "../.env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
 
 
 settings = Settings()
+

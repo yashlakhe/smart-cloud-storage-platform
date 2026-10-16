@@ -6,6 +6,7 @@ from app.models.base import get_utc_now
 from app.models.file import FileRecord
 from app.models.share import FileShare
 from app.models.user import User
+from app.services.activity import log_activity
 from app.services.auth import normalize_email
 
 
@@ -66,6 +67,17 @@ def share_file(
         existing_share.revoked_at = None
         db.commit()
         db.refresh(existing_share)
+
+        log_activity(
+            db=db,
+            user_id=owner_id,
+            action="SHARE",
+            resource_type="share",
+            resource_id=existing_share.id,
+            resource_name=file_record.original_filename,
+            details=f"Updated share with {recipient.email} ({clean_perm})",
+        )
+
         return existing_share
 
     # Create new share
@@ -78,6 +90,17 @@ def share_file(
     db.add(share)
     db.commit()
     db.refresh(share)
+
+    log_activity(
+        db=db,
+        user_id=owner_id,
+        action="SHARE",
+        resource_type="share",
+        resource_id=share.id,
+        resource_name=file_record.original_filename,
+        details=f"Shared '{file_record.original_filename}' with {recipient.email} ({clean_perm})",
+    )
+
     return share
 
 
@@ -147,6 +170,16 @@ def revoke_share(
 
     share.revoked_at = get_utc_now()
     db.commit()
+
+    log_activity(
+        db=db,
+        user_id=owner_id,
+        action="REVOKE_SHARE",
+        resource_type="share",
+        resource_id=share_id,
+        details="Revoked file share access",
+    )
+
 
 
 def get_user_file_permission(

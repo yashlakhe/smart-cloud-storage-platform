@@ -15,11 +15,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application source code and Alembic migration infrastructure
+# Copy application source code, Alembic migration infrastructure, and tests
 COPY app ./app
 COPY alembic.ini .
 COPY alembic ./alembic
+COPY tests ./tests
 
 EXPOSE 8000
+
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

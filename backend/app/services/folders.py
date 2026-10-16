@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.models.folder import Folder
 from app.models.file import FileRecord
+from app.services.activity import log_activity
 from app.services.storage import storage_service
 
 
@@ -46,6 +47,17 @@ def create_folder(
     db.add(folder)
     db.commit()
     db.refresh(folder)
+
+    log_activity(
+        db=db,
+        user_id=user_id,
+        action="FOLDER_CREATE",
+        resource_type="folder",
+        resource_id=folder.id,
+        resource_name=folder.name,
+        details=f"Created folder '{folder.name}'",
+    )
+
     return folder
 
 
@@ -93,9 +105,21 @@ def rename_folder(
     clean_name = new_name.strip()
     if not clean_name:
         raise InvalidFolderError("Folder name cannot be empty")
+    old_name = folder.name
     folder.name = clean_name
     db.commit()
     db.refresh(folder)
+
+    log_activity(
+        db=db,
+        user_id=user_id,
+        action="FOLDER_RENAME",
+        resource_type="folder",
+        resource_id=folder.id,
+        resource_name=clean_name,
+        details=f"Renamed folder from '{old_name}' to '{clean_name}'",
+    )
+
     return folder
 
 
@@ -106,6 +130,7 @@ def delete_folder(
 ) -> None:
     """Delete a folder and clean up associated files in storage."""
     folder = get_folder(db, user_id, folder_id)
+    folder_name_snapshot = folder.name
 
     # Clean up any file objects stored in this folder
     files_result = db.execute(
@@ -117,3 +142,14 @@ def delete_folder(
 
     db.delete(folder)
     db.commit()
+
+    log_activity(
+        db=db,
+        user_id=user_id,
+        action="FOLDER_DELETE",
+        resource_type="folder",
+        resource_id=folder_id,
+        resource_name=folder_name_snapshot,
+        details=f"Deleted folder '{folder_name_snapshot}' and cleaned up contents",
+    )
+

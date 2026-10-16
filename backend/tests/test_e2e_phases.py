@@ -296,3 +296,164 @@ def test_file_sharing_and_access_control_e2e():
     # Bob attempts to download again -> REJECTED
     bob_stream_revoked = client.get(f"/files/{file_id}/stream", headers=bob_h)
     assert bob_stream_revoked.status_code == 404
+
+
+def test_phase5_activity_logging_and_filtering():
+    suffix = uuid.uuid4().hex[:8]
+    user_email = f"activity_tester_{suffix}@example.com"
+    bob_email = f"bob_target_{suffix}@example.com"
+    password = "TestPassword123!"
+
+    client.post("/auth/register", json={"email": user_email, "password": password, "full_name": "Activity Tester"})
+    client.post("/auth/register", json={"email": bob_email, "password": password, "full_name": "Bob Target"})
+
+    login_res = client.post("/auth/login", json={"email": user_email, "password": password})
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. Create Folder -> FOLDER_CREATE
+    f_res = client.post("/folders/", json={"name": "Projects"}, headers=headers)
+    assert f_res.status_code == 201
+    folder_id = f_res.json()["id"]
+
+    # 2. Rename Folder -> FOLDER_RENAME
+    f_rename = client.put(f"/folders/{folder_id}", json={"name": "Work Projects"}, headers=headers)
+    assert f_rename.status_code == 200
+
+    # 3. Upload File -> UPLOAD
+    content = b"Activity test file content."
+    upload_res = client.post(
+        "/files/upload",
+        files={"file": ("project_spec.txt", io.BytesIO(content), "text/plain")},
+        data={"folder_id": folder_id},
+        headers=headers,
+    )
+    assert upload_res.status_code == 201
+    file_id = upload_res.json()["id"]
+
+    # 4. Download File -> DOWNLOAD
+    dl_res = client.get(f"/files/{file_id}/stream", headers=headers)
+    assert dl_res.status_code == 200
+
+    # 5. Rename File -> RENAME
+    rn_res = client.put(f"/files/{file_id}", json={"original_filename": "final_spec.txt"}, headers=headers)
+    assert rn_res.status_code == 200
+
+    # 6. Move File -> MOVE
+    mv_res = client.put(f"/files/{file_id}", json={"folder_id": None}, headers=headers)
+    assert mv_res.status_code == 200
+
+    # 7. Share File -> SHARE
+    sh_res = client.post(
+        "/shares/",
+        json={"file_id": file_id, "recipient_email": bob_email, "permission": "read"},
+        headers=headers,
+    )
+    assert sh_res.status_code == 201
+    share_id = sh_res.json()["id"]
+
+    # 8. Revoke Share -> REVOKE_SHARE
+    rev_res = client.delete(f"/shares/{share_id}", headers=headers)
+    assert rev_res.status_code == 204
+
+    # 9. Delete File -> DELETE
+    del_f = client.delete(f"/files/{file_id}", headers=headers)
+    assert del_f.status_code == 204
+
+    # 10. Delete Folder -> FOLDER_DELETE
+    del_folder = client.delete(f"/folders/{folder_id}", headers=headers)
+    assert del_folder.status_code == 204
+
+    # 11. Retrieve all activity logs
+    logs_res = client.get("/activity/", headers=headers)
+    assert logs_res.status_code == 200
+    logs_data = logs_res.json()
+    assert logs_data["total"] >= 10
+    actions_logged = [item["action"] for item in logs_data["items"]]
+
+    expected_actions = [
+        "FOLDER_CREATE",
+        "FOLDER_RENAME",
+        "UPLOAD",
+        "DOWNLOAD",
+        "RENAME",
+        "MOVE",
+        "SHARE",
+        "REVOKE_SHARE",
+        "DELETE",
+        "FOLDER_DELETE",
+    ]
+    for exp in expected_actions:
+        assert exp in actions_logged, f"Expected action '{exp}' was not logged"
+
+    # 12. Test Filtering by action
+    upload_logs_res = client.get("/activity/?action=UPLOAD", headers=headers)
+    assert upload_logs_res.status_code == 200
+    upload_items = upload_logs_res.json()["items"]
+    assert len(upload_items) >= 1
+    assert all(item["action"] == "UPLOAD" for item in upload_items)
+
+
+def test_phase5_dashboard_analytics_summary():
+    suffix = uuid.uuid4().hex[:8]
+    user_email = f"analytics_{suffix}@example.com"
+    password = "DashboardPass123!"
+
+    client.post("/auth/register", json={"email": user_email, "password": password, "full_name": "Analytics User"})
+    login_res = client.post("/auth/login", json={"email": user_email, "password": password})
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Upload multiple file types
+    doc_bytes = b"%PDF-1.4 Mock PDF Content For Testing Analytics"
+    img_bytes = b"\x89PNG\r\n\x1a\nMock PNG Image Bytes"
+    zip_bytes = b"PK\x03\x04Mock Zip Archive Bytes"
+
+    client.post(
+        "/files/upload",
+        files={"file": ("doc.pdf", io.BytesIO(doc_bytes), "application/pdf")},
+        headers=headers,
+    )
+    client.post(
+        "/files/upload",
+        files={"file": ("photo.png", io.BytesIO(img_bytes), "image/png")},
+        headers=headers,
+    )
+    client.post(
+        "/files/upload",
+        files={"file": ("backup.zip", io.BytesIO(zip_bytes), "application/zip")},
+        headers=headers,
+    )
+
+    # Call /dashboard/summary
+    dash_res = client.get("/dashboard/summary", headers=headers)
+    assert dash_res.status_code == 200
+    dash = dash_res.json()
+
+    # Quota checks
+    assert dash["quota"]["total_quota_bytes"] == 10 * 1024 * 1024 * 1024
+    total_expected_used = len(doc_bytes) + len(img_bytes) + len(zip_bytes)
+    assert dash["quota"]["total_bytes_used"] == total_expected_used
+    assert dash["quota"]["remaining_bytes"] == dash["quota"]["total_quota_bytes"] - total_expected_used
+    assert dash["total_files"] == 3
+
+    # Category checks
+    assert dash["categories"]["documents"]["bytes"] == len(doc_bytes)
+    assert dash["categories"]["documents"]["count"] == 1
+    assert dash["categories"]["images"]["bytes"] == len(img_bytes)
+    assert dash["categories"]["images"]["count"] == 1
+    assert dash["categories"]["archives"]["bytes"] == len(zip_bytes)
+    assert dash["categories"]["archives"]["count"] == 1
+
+    # Aging checks
+    assert len(dash["access_aging"]) == 4
+    keys = [tier["key"] for tier in dash["access_aging"]]
+    assert "hot" in keys
+    assert "warm" in keys
+    assert "cold" in keys
+    assert "dormant" in keys
+
+    # Recent activities present
+    assert len(dash["recent_activities"]) >= 3
+    assert any(a["action"] == "UPLOAD" for a in dash["recent_activities"])
+

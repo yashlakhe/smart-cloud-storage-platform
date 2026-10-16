@@ -10,11 +10,13 @@ from app.api.auth import router as auth_router
 from app.api.folders import router as folders_router
 from app.api.files import router as files_router
 from app.api.shares import router as shares_router
+from app.api.activity import router as activity_router
+from app.api.dashboard import router as dashboard_router
 
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="Smart Cloud Storage Platform REST API — Phase 2, 3, & 4",
+    description="Smart Cloud Storage Platform REST API — Phase 5 Dashboard & Activity Tracking",
 )
 
 # Configure CORS restricted to frontend development origin
@@ -31,6 +33,9 @@ app.include_router(auth_router)
 app.include_router(folders_router)
 app.include_router(files_router)
 app.include_router(shares_router)
+app.include_router(activity_router)
+app.include_router(dashboard_router)
+
 
 
 @app.get("/users/me", response_model=UserResponse, tags=["Users"])

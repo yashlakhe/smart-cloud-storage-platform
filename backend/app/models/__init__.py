@@ -3,6 +3,7 @@ from app.models.user import User
 from app.models.folder import Folder
 from app.models.file import FileRecord
 from app.models.share import FileShare
+from app.models.activity import ActivityLog
 
 __all__ = [
     "Base",
@@ -11,4 +12,6 @@ __all__ = [
     "Folder",
     "FileRecord",
     "FileShare",
+    "ActivityLog",
 ]
+

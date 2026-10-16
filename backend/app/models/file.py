@@ -72,6 +72,8 @@ class FileRecord(Base):
     # Relationships
     owner = relationship("User", backref="files")
     folder = relationship("Folder", backref="files")
+    shares = relationship("FileShare", back_populates="file", cascade="all, delete-orphan", passive_deletes=True)
 
     def __repr__(self) -> str:
         return f"<FileRecord id={self.id} filename={self.original_filename} size={self.size}>"
+
