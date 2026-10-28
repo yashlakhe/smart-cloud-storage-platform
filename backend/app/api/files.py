@@ -198,6 +198,9 @@ def stream_file_content(
     # Fallback to direct read from storage
     from app.services.storage import storage_service
     raw_bytes = storage_service.get_file_bytes(file_record.storage_key)
+    if file_record.storage_object and file_record.storage_object.is_compressed:
+        from app.services.compression import decompress_storage_bytes
+        raw_bytes = decompress_storage_bytes(raw_bytes, file_record.storage_object.compression_algorithm)
     return Response(
         content=raw_bytes,
         media_type=file_record.mime_type,

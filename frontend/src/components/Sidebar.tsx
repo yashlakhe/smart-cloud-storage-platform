@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type ActiveTab = 'my-files' | 'shared' | 'dashboard' | 'activity' | 'storage' | 'health';
+export type ActiveTab = 'my-files' | 'shared' | 'dashboard' | 'activity' | 'intelligence' | 'storage' | 'health';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -15,7 +15,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenUpload,
   onOpenNewFolder,
 }) => {
-  const navItems: { id: ActiveTab; label: string; icon: React.ReactNode }[] = [
+  const navItems: { id: ActiveTab; label: string; icon: React.ReactNode; badge?: string }[] = [
     {
       id: 'my-files',
       label: 'My Files',
@@ -41,6 +41,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+        </svg>
+      ),
+    },
+    {
+      id: 'intelligence',
+      label: 'Storage Intelligence',
+      badge: 'Novelty',
+      icon: (
+        <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
       ),
     },
@@ -105,8 +115,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
               }`}
             >
-              {item.icon}
-              <span>{item.label}</span>
+              <div className="flex items-center gap-3">
+                {item.icon}
+                <span>{item.label}</span>
+              </div>
+              {item.badge && (
+                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  {item.badge}
+                </span>
+              )}
             </button>
           ))}
         </nav>

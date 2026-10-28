@@ -73,11 +73,14 @@ def upload_file(
     # Predictable, non-sensitive object key per Architecture.md
     storage_key = f"users/{user_id}/files/{file_id}/{clean_filename}"
 
-    # 1. Store in object storage
-    storage_service.upload_file_bytes(
-        storage_key=storage_key,
-        data=file_bytes,
-        content_type=mime_type,
+    # 1. Store/link via Content-Addressable Storage (CAS) deduplication
+    from app.services.cas_dedup import get_or_create_storage_object
+    storage_obj, is_new = get_or_create_storage_object(
+        db=db,
+        content_hash=content_hash,
+        size=size,
+        raw_bytes=file_bytes,
+        mime_type=mime_type,
     )
 
     # 2. Persist in database
@@ -86,7 +89,8 @@ def upload_file(
         owner_id=user_id,
         folder_id=folder_id,
         original_filename=clean_filename,
-        storage_key=storage_key,
+        storage_key=storage_obj.storage_key,
+        storage_object_id=storage_obj.id,
         mime_type=mime_type or "application/octet-stream",
         size=size,
         content_hash=content_hash,
@@ -98,11 +102,13 @@ def upload_file(
         db.refresh(file_record)
     except Exception as exc:
         db.rollback()
-        # Clean up storage object on DB failure
-        storage_service.delete_file_object(storage_key)
         raise FileOperationError(f"Database error saving file metadata: {exc}") from exc
 
     # Log upload event
+    upload_detail = f"Uploaded {file_record.original_filename} ({file_record.size} bytes)"
+    if not is_new:
+        upload_detail += " [Deduplicated via CAS: zero bandwidth]"
+
     log_activity(
         db=db,
         user_id=user_id,
@@ -110,7 +116,7 @@ def upload_file(
         resource_type="file",
         resource_id=file_record.id,
         resource_name=file_record.original_filename,
-        details=f"Uploaded {file_record.original_filename} ({file_record.size} bytes)",
+        details=upload_detail,
     )
 
     return file_record
@@ -169,9 +175,15 @@ def get_download_data(
     """
     file_record = get_file(db, user_id, file_id)
 
-    # Update last_accessed_at
+    # Update last_accessed_at and record prefetch telemetry
     file_record.last_accessed_at = get_utc_now()
     db.commit()
+
+    try:
+        from app.services.prediction import record_access_prefetch_telemetry
+        record_access_prefetch_telemetry(db, user_id, file_record.id)
+    except Exception:
+        pass
 
     presigned_url = storage_service.generate_presigned_download_url(
         storage_key=file_record.storage_key,
@@ -190,8 +202,12 @@ def get_download_data(
         )
         return file_record, presigned_url, None
 
-    # Fallback to local byte stream
+    # Fallback to local byte stream (with transparent decompression if stored compressed)
     file_bytes = storage_service.get_file_bytes(file_record.storage_key)
+    if file_record.storage_object and file_record.storage_object.is_compressed:
+        from app.services.compression import decompress_storage_bytes
+        file_bytes = decompress_storage_bytes(file_bytes, file_record.storage_object.compression_algorithm)
+
     log_activity(
         db=db,
         user_id=user_id,
@@ -300,13 +316,19 @@ def delete_file(
 
     filename_snapshot = file_record.original_filename
     size_snapshot = file_record.size
+    storage_obj_id = file_record.storage_object_id
+    storage_key = file_record.storage_key
 
-    # 1. Delete object from storage
-    storage_service.delete_file_object(file_record.storage_key)
-
-    # 2. Delete database record
+    # 1. Delete database record
     db.delete(file_record)
     db.commit()
+
+    # 2. Release storage object reference in CAS (or purge physical object if last ref)
+    if storage_obj_id:
+        from app.services.cas_dedup import release_storage_object_reference
+        release_storage_object_reference(db, storage_obj_id)
+    else:
+        storage_service.delete_file_object(storage_key)
 
     log_activity(
         db=db,

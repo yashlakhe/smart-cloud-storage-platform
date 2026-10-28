@@ -33,7 +33,6 @@ class FileRecord(Base):
     )
     storage_key: Mapped[str] = mapped_column(
         String(512),
-        unique=True,
         nullable=False,
         index=True,
     )
@@ -68,11 +67,37 @@ class FileRecord(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+    storage_tier: Mapped[str] = mapped_column(
+        String(32),
+        default="STANDARD",
+        server_default=text("'STANDARD'"),
+        nullable=False,
+        index=True,
+    )
+    tier_transitioned_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=get_utc_now,
+        server_default=text("now()"),
+        nullable=False,
+    )
+    access_count: Mapped[int] = mapped_column(
+        BigInteger,
+        default=0,
+        server_default=text("0"),
+        nullable=False,
+    )
+    storage_object_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("storage_objects.id", ondelete="SET NULL", name="fk_files_storage_object_id"),
+        nullable=True,
+        index=True,
+    )
 
     # Relationships
     owner = relationship("User", backref="files")
     folder = relationship("Folder", backref="files")
     shares = relationship("FileShare", back_populates="file", cascade="all, delete-orphan", passive_deletes=True)
+    storage_object = relationship("StorageObject", back_populates="files")
 
     def __repr__(self) -> str:
         return f"<FileRecord id={self.id} filename={self.original_filename} size={self.size}>"

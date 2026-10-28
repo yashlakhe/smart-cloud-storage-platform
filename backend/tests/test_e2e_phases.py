@@ -174,7 +174,7 @@ def test_folders_and_files_workflow():
     assert file_info["original_filename"] == "invoice_august.txt"
     assert file_info["size"] == len(sample_content)
     assert file_info["folder_id"] == subfolder["id"]
-    assert "users/" in file_info["storage_key"]
+    assert "users/" in file_info["storage_key"] or "cas/" in file_info["storage_key"]
 
     # 5. List Files in Subfolder
     list_files_res = client.get(f"/files/?folder_id={subfolder['id']}", headers=headers)
@@ -321,7 +321,7 @@ def test_phase5_activity_logging_and_filtering():
     assert f_rename.status_code == 200
 
     # 3. Upload File -> UPLOAD
-    content = b"Activity test file content."
+    content = f"Activity test file content for run {suffix}.".encode("utf-8")
     upload_res = client.post(
         "/files/upload",
         files={"file": ("project_spec.txt", io.BytesIO(content), "text/plain")},
@@ -456,4 +456,203 @@ def test_phase5_dashboard_analytics_summary():
     # Recent activities present
     assert len(dash["recent_activities"]) >= 3
     assert any(a["action"] == "UPLOAD" for a in dash["recent_activities"])
+
+
+def test_phase7_storage_tiering_analysis_and_transition():
+    suffix = uuid.uuid4().hex[:8]
+    user_email = f"tiering_{suffix}@example.com"
+    password = "TieringPassword123!"
+
+    client.post("/auth/register", json={"email": user_email, "password": password, "full_name": "Tiering User"})
+    login_res = client.post("/auth/login", json={"email": user_email, "password": password})
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Upload a small file (< 128 KB)
+    small_bytes = b"Small file content for Standard tier"
+    res1 = client.post(
+        "/files/upload",
+        files={"file": ("small.txt", io.BytesIO(small_bytes), "text/plain")},
+        headers=headers,
+    )
+    assert res1.status_code == 201
+    file_id = res1.json()["id"]
+
+    # Check /tiering/analysis
+    analysis_res = client.get("/tiering/analysis", headers=headers)
+    assert analysis_res.status_code == 200
+    data = analysis_res.json()
+    assert "baseline_monthly_cost_usd" in data
+    assert "tier_breakdown" in data
+    assert len(data["tier_breakdown"]) == 4
+    assert len(data["recommendations"]) >= 1
+
+    # Transition file tier manually
+    tier_change_res = client.put(
+        f"/tiering/files/{file_id}",
+        json={"target_tier": "STANDARD_IA"},
+        headers=headers,
+    )
+    assert tier_change_res.status_code == 200
+    assert tier_change_res.json()["storage_tier"] == "STANDARD_IA"
+
+    # Apply bulk tiering
+    apply_res = client.post(
+        "/tiering/apply",
+        json={"file_ids": [file_id]},
+        headers=headers,
+    )
+    assert apply_res.status_code == 200
+    assert "transitioned_count" in apply_res.json()
+
+
+def test_phase7_access_prediction_and_prefetching():
+    suffix = uuid.uuid4().hex[:8]
+    user_email = f"prediction_{suffix}@example.com"
+    password = "PredictionPassword123!"
+
+    client.post("/auth/register", json={"email": user_email, "password": password, "full_name": "Prediction User"})
+    login_res = client.post("/auth/login", json={"email": user_email, "password": password})
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Upload two files in sequence
+    f1_bytes = b"File 1 content for Markov transition chain"
+    f2_bytes = b"File 2 content accessed after file 1"
+
+    r1 = client.post("/files/upload", files={"file": ("sequence_a.txt", io.BytesIO(f1_bytes), "text/plain")}, headers=headers)
+    r2 = client.post("/files/upload", files={"file": ("sequence_b.txt", io.BytesIO(f2_bytes), "text/plain")}, headers=headers)
+    assert r1.status_code == 201
+    assert r2.status_code == 201
+    f1_id = r1.json()["id"]
+    f2_id = r2.json()["id"]
+
+    # Access file 1
+    client.get(f"/files/{f1_id}/download", headers=headers)
+
+    # Get predictions
+    pred_res = client.get("/prediction/recommended?top_k=3", headers=headers)
+    assert pred_res.status_code == 200
+    pred_data = pred_res.json()
+    assert "recommended_files" in pred_data
+    assert pred_data["total_recommended"] >= 1
+
+    # Check metrics
+    metrics_res = client.get("/prediction/metrics", headers=headers)
+    assert metrics_res.status_code == 200
+    metrics_data = metrics_res.json()
+    assert "total_predictions" in metrics_data
+    assert "hit_rate_percentage" in metrics_data
+
+    # Evaluate model
+    eval_res = client.post("/prediction/evaluate", headers=headers)
+    assert eval_res.status_code == 200
+    eval_data = eval_res.json()
+    assert "precision_at_1" in eval_data
+    assert "precision_at_3" in eval_data
+    assert "transition_insights" in eval_data
+
+
+def test_phase7_cas_deduplication_lifecycle_and_zero_byte_upload():
+    suffix = uuid.uuid4().hex[:8]
+    email_a = f"dedup_a_{suffix}@example.com"
+    email_b = f"dedup_b_{suffix}@example.com"
+    password = "DedupPassword123!"
+
+    # 1. Register User A and User B
+    client.post("/auth/register", json={"email": email_a, "password": password, "full_name": "User Alpha"})
+    client.post("/auth/register", json={"email": email_b, "password": password, "full_name": "User Beta"})
+
+    tok_a = client.post("/auth/login", json={"email": email_a, "password": password}).json()["access_token"]
+    tok_b = client.post("/auth/login", json={"email": email_b, "password": password}).json()["access_token"]
+    headers_a = {"Authorization": f"Bearer {tok_a}"}
+    headers_b = {"Authorization": f"Bearer {tok_b}"}
+
+    # 2. User A uploads file
+    shared_content = f"%PDF-1.4 Mock Standard Corporate Policy {suffix} duplicated across multiple departments".encode("utf-8") * 20
+    res_a = client.post(
+        "/files/upload",
+        files={"file": ("policy_alpha.pdf", io.BytesIO(shared_content), "application/pdf")},
+        headers=headers_a,
+    )
+    assert res_a.status_code == 201
+    file_a_id = res_a.json()["id"]
+
+    # 3. User B uploads identical file
+    res_b = client.post(
+        "/files/upload",
+        files={"file": ("policy_beta.pdf", io.BytesIO(shared_content), "application/pdf")},
+        headers=headers_b,
+    )
+    assert res_b.status_code == 201
+    file_b_id = res_b.json()["id"]
+
+    # 4. Check /dedup/analytics
+    dedup_res = client.get("/dedup/analytics", headers=headers_a)
+    assert dedup_res.status_code == 200
+    dedup_data = dedup_res.json()
+    assert dedup_data["total_logical_files"] >= 1
+    assert "deduplication_ratio" in dedup_data
+    assert "bytes_saved_by_dedup" in dedup_data
+
+    # 5. User A deletes their file: physical backing object must remain for User B!
+    del_a = client.delete(f"/files/{file_a_id}", headers=headers_a)
+    assert del_a.status_code in (200, 204)
+
+    # User B should still successfully download their copy
+    dl_b = client.get(f"/files/{file_b_id}/stream", headers=headers_b)
+    assert dl_b.status_code == 200
+    assert dl_b.content == shared_content
+
+    # User B deletes their file: now physical backing object cleaned up
+    del_b = client.delete(f"/files/{file_b_id}", headers=headers_b)
+    assert del_b.status_code in (200, 204)
+
+
+def test_phase7_adaptive_lossless_compression_and_transparent_decompression():
+    suffix = uuid.uuid4().hex[:8]
+    user_email = f"comp_{suffix}@example.com"
+    password = "CompPassword123!"
+
+    client.post("/auth/register", json={"email": user_email, "password": password, "full_name": "Compression User"})
+    token = client.post("/auth/login", json={"email": user_email, "password": password}).json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Highly compressible JSON dataset
+    json_data = f'{{"run": "{suffix}", "status": "ok", "records": [{{"id": 1, "name": "sample"}}]}}'.encode("utf-8") * 50
+    upload_res = client.post(
+        "/files/upload",
+        files={"file": ("dataset.json", io.BytesIO(json_data), "application/json")},
+        headers=headers,
+    )
+    assert upload_res.status_code == 201
+    file_id = upload_res.json()["id"]
+
+    # Check compression analytics candidate
+    analytics_res = client.get("/compression/analytics", headers=headers)
+    assert analytics_res.status_code == 200
+    analytics = analytics_res.json()
+    assert analytics["total_files"] >= 1
+    assert analytics["compressible_candidates_count"] >= 1
+
+    # Apply compression to the file
+    comp_res = client.post(f"/compression/compress/{file_id}", headers=headers)
+    assert comp_res.status_code == 200
+    comp_info = comp_res.json()
+    assert comp_info["status"] == "compressed"
+    assert comp_info["compressed_size"] < comp_info["original_size"]
+    assert comp_info["ratio_percent"] > 50.0
+
+    # Verify transparent on-the-fly decompression on download
+    dl_res = client.get(f"/files/{file_id}/stream", headers=headers)
+    assert dl_res.status_code == 200
+    # The downloaded bytes must match the exact original uncompressed JSON!
+    assert dl_res.content == json_data
+
+    # Test bulk compress cold files endpoint
+    bulk_res = client.post("/compression/bulk-compress-cold", headers=headers)
+    assert bulk_res.status_code == 200
+    assert "compressed_files_count" in bulk_res.json()
+
+
 

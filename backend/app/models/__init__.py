@@ -4,6 +4,8 @@ from app.models.folder import Folder
 from app.models.file import FileRecord
 from app.models.share import FileShare
 from app.models.activity import ActivityLog
+from app.models.prediction import PrefetchTelemetry
+from app.models.storage_object import StorageObject
 
 __all__ = [
     "Base",
@@ -13,5 +15,7 @@ __all__ = [
     "FileRecord",
     "FileShare",
     "ActivityLog",
+    "PrefetchTelemetry",
+    "StorageObject",
 ]
 

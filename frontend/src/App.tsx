@@ -8,6 +8,7 @@ import { FileManager } from './components/FileManager';
 import { ShareModal } from './components/ShareModal';
 import { SharedWithMe } from './components/SharedWithMe';
 import { DashboardView } from './components/DashboardView';
+import { StorageIntelligenceView } from './components/StorageIntelligenceView';
 import { ActivityLogView } from './components/ActivityLogView';
 import { HealthView } from './components/HealthView';
 
@@ -210,6 +211,8 @@ const Dashboard: React.FC = () => {
         {(activeTab === 'dashboard' || activeTab === 'storage') && (
           <DashboardView onNavigateToTab={(tab) => setActiveTab(tab)} />
         )}
+
+        {activeTab === 'intelligence' && <StorageIntelligenceView />}
 
         {activeTab === 'activity' && <ActivityLogView />}
 

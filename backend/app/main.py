@@ -12,11 +12,15 @@ from app.api.files import router as files_router
 from app.api.shares import router as shares_router
 from app.api.activity import router as activity_router
 from app.api.dashboard import router as dashboard_router
+from app.api.tiering import router as tiering_router
+from app.api.prediction import router as prediction_router
+from app.api.dedup import router as dedup_router
+from app.api.compression import router as compression_router
 
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="Smart Cloud Storage Platform REST API — Phase 5 Dashboard & Activity Tracking",
+    description="Smart Cloud Storage Platform REST API — Phase 7 Storage Intelligence (Tiering, Prefetching, CAS Deduplication, Adaptive Compression)",
 )
 
 # Configure CORS restricted to frontend development origin
@@ -35,6 +39,10 @@ app.include_router(files_router)
 app.include_router(shares_router)
 app.include_router(activity_router)
 app.include_router(dashboard_router)
+app.include_router(tiering_router)
+app.include_router(prediction_router)
+app.include_router(dedup_router)
+app.include_router(compression_router)
 
 
 

@@ -27,6 +27,8 @@ export interface FileRecord {
   created_at: string;
   updated_at: string;
   last_accessed_at: string | null;
+  storage_tier?: string;
+  access_count?: number;
 }
 
 export interface FileDownloadInfo {
@@ -425,4 +427,233 @@ export async function getActivityLogs(
   });
   return handleResponse<ActivityListResponse>(response);
 }
+
+// ---------------- PHASE 7 STORAGE INTELLIGENCE API ----------------
+
+export interface FileTierRecommendation {
+  file_id: string;
+  original_filename: string;
+  size: number;
+  current_tier: string;
+  recommended_tier: string;
+  reason: string;
+  days_unaccessed: number;
+  access_count: number;
+  current_monthly_cost_usd: number;
+  optimized_monthly_cost_usd: number;
+  monthly_savings_usd: number;
+}
+
+export interface TierCostBreakdown {
+  tier: string;
+  label: string;
+  description: string;
+  file_count: number;
+  total_bytes: number;
+  rate_per_gb_mo: number;
+  monthly_cost_usd: number;
+  percent_of_storage: number;
+}
+
+export interface StorageTierAnalysis {
+  baseline_monthly_cost_usd: number;
+  current_monthly_cost_usd: number;
+  optimized_monthly_cost_usd: number;
+  potential_monthly_savings_usd: number;
+  savings_percentage: number;
+  tier_breakdown: TierCostBreakdown[];
+  recommendations: FileTierRecommendation[];
+  pending_recommendations_count: number;
+}
+
+export interface ApplyTieringResponse {
+  transitioned_count: number;
+  monthly_savings_usd: number;
+  updated_files: string[];
+}
+
+export async function getStorageTierAnalysis(): Promise<StorageTierAnalysis> {
+  const response = await fetch(`${BASE_URL}/tiering/analysis`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  return handleResponse<StorageTierAnalysis>(response);
+}
+
+export async function applyStorageTiering(fileIds?: string[]): Promise<ApplyTieringResponse> {
+  const response = await fetch(`${BASE_URL}/tiering/apply`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ file_ids: fileIds || null }),
+  });
+  return handleResponse<ApplyTieringResponse>(response);
+}
+
+export async function setSingleFileTier(fileId: string, targetTier: string): Promise<{ status: string; storage_tier: string }> {
+  const response = await fetch(`${BASE_URL}/tiering/files/${fileId}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ target_tier: targetTier }),
+  });
+  return handleResponse<{ status: string; storage_tier: string }>(response);
+}
+
+export interface PrefetchedFileItem {
+  file_id: string;
+  original_filename: string;
+  mime_type: string;
+  size: number;
+  storage_tier: string;
+  confidence: number;
+  reason: string;
+  prefetch_url: string | null;
+  stream_url: string;
+}
+
+export interface PredictionRecommendationResponse {
+  recommended_files: PrefetchedFileItem[];
+  total_recommended: number;
+  model_version: string;
+}
+
+export interface PrefetchTelemetryMetrics {
+  total_predictions: number;
+  total_hits: number;
+  total_misses: number;
+  hit_rate_percentage: number;
+  total_time_saved_ms: number;
+  estimated_seconds_saved: number;
+}
+
+export interface SequenceTransitionInsight {
+  source_filename: string;
+  target_filename: string;
+  transition_count: number;
+  probability: number;
+}
+
+export interface PredictionEvaluationResponse {
+  total_evaluated_events: number;
+  precision_at_1: number;
+  precision_at_3: number;
+  recall_at_3: number;
+  transition_insights: SequenceTransitionInsight[];
+  metrics: PrefetchTelemetryMetrics;
+}
+
+export async function getPredictionRecommendations(topK: number = 4): Promise<PredictionRecommendationResponse> {
+  const response = await fetch(`${BASE_URL}/prediction/recommended?top_k=${topK}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  return handleResponse<PredictionRecommendationResponse>(response);
+}
+
+export async function getPrefetchMetrics(): Promise<PrefetchTelemetryMetrics> {
+  const response = await fetch(`${BASE_URL}/prediction/metrics`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  return handleResponse<PrefetchTelemetryMetrics>(response);
+}
+
+export async function evaluatePredictionModel(): Promise<PredictionEvaluationResponse> {
+  const response = await fetch(`${BASE_URL}/prediction/evaluate`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  return handleResponse<PredictionEvaluationResponse>(response);
+}
+
+// ---------------- CAS DEDUPLICATION API ----------------
+
+export interface DeduplicatedFileItem {
+  file_id: string;
+  original_filename: string;
+  content_hash: string;
+  size: number;
+  reference_count: number;
+  bandwidth_saved_bytes: number;
+}
+
+export interface DeduplicationAnalytics {
+  total_logical_files: number;
+  total_logical_bytes: number;
+  total_physical_objects: number;
+  total_physical_bytes: number;
+  total_effective_bytes: number;
+  bytes_saved_by_dedup: number;
+  deduplication_ratio: number;
+  savings_percentage: number;
+  monthly_cost_saved_usd: number;
+  deduplicated_files_count: number;
+  deduplicated_files: DeduplicatedFileItem[];
+}
+
+export async function getDeduplicationAnalytics(): Promise<DeduplicationAnalytics> {
+  const response = await fetch(`${BASE_URL}/dedup/analytics`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  return handleResponse<DeduplicationAnalytics>(response);
+}
+
+// ---------------- ADAPTIVE COMPRESSION API ----------------
+
+export interface CompressedItem {
+  file_id: string;
+  original_filename: string;
+  mime_type: string;
+  original_size: number;
+  compressed_size: number;
+  ratio_percent: number;
+  storage_tier: string;
+}
+
+export interface CompressibleCandidate {
+  file_id: string;
+  original_filename: string;
+  mime_type: string;
+  size: number;
+  storage_tier: string;
+  estimated_savings_bytes: number;
+}
+
+export interface CompressionAnalytics {
+  total_files: number;
+  compressed_files_count: number;
+  compressible_candidates_count: number;
+  total_uncompressed_bytes: number;
+  total_current_bytes: number;
+  net_bytes_saved: number;
+  overall_compression_pct: number;
+  compressed_items: CompressedItem[];
+  candidates: CompressibleCandidate[];
+}
+
+export async function getCompressionAnalytics(): Promise<CompressionAnalytics> {
+  const response = await fetch(`${BASE_URL}/compression/analytics`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  return handleResponse<CompressionAnalytics>(response);
+}
+
+export async function compressSingleFile(fileId: string): Promise<{ status: string; compressed_size: number; ratio_percent: number }> {
+  const response = await fetch(`${BASE_URL}/compression/compress/${fileId}`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  return handleResponse<{ status: string; compressed_size: number; ratio_percent: number }>(response);
+}
+
+export async function bulkCompressColdFiles(): Promise<{ compressed_files_count: number; total_bytes_saved: number }> {
+  const response = await fetch(`${BASE_URL}/compression/bulk-compress-cold`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  return handleResponse<{ compressed_files_count: number; total_bytes_saved: number }>(response);
+}
+
+
 
