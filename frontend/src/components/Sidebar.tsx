@@ -7,6 +7,7 @@ interface SidebarProps {
   onTabChange: (tab: ActiveTab) => void;
   onOpenUpload: () => void;
   onOpenNewFolder: () => void;
+  isUploading?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -14,6 +15,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onTabChange,
   onOpenUpload,
   onOpenNewFolder,
+  isUploading = false,
 }) => {
   const navItems: { id: ActiveTab; label: string; icon: React.ReactNode; badge?: string }[] = [
     {
@@ -82,12 +84,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="space-y-2">
           <button
             onClick={onOpenUpload}
-            className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:opacity-90 text-white font-medium text-sm transition-all shadow-md shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer"
+            disabled={isUploading}
+            className={`w-full py-2.5 px-4 rounded-xl text-white font-medium text-sm transition-all shadow-md flex items-center justify-center gap-2 ${
+              isUploading
+                ? 'bg-blue-600/60 cursor-not-allowed text-blue-200'
+                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:opacity-90 shadow-blue-600/20 cursor-pointer'
+            }`}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-            </svg>
-            <span>Upload File</span>
+            {isUploading ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                <span>Uploading...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                <span>Upload File</span>
+              </>
+            )}
           </button>
           <button
             onClick={onOpenNewFolder}

@@ -11,11 +11,14 @@ interface FileManagerProps {
   onNavigateFolder: (folder: Folder | null) => void;
   onUploadFile: (file: File) => void;
   onOpenShareModal: (file: FileRecord) => void;
-  onDownloadFile: (file: FileRecord) => void;
+  onDownloadFile: (file: FileRecord, selectLocation?: boolean) => void;
   onRenameFile: (file: FileRecord, newName: string) => void;
   onDeleteFile: (file: FileRecord) => void;
   onRenameFolder: (folder: Folder, newName: string) => void;
   onDeleteFolder: (folder: Folder) => void;
+  downloadingFileId?: string | null;
+  isUploading?: boolean;
+  uploadingFileName?: string | null;
 }
 
 export const FileManager: React.FC<FileManagerProps> = ({
@@ -33,11 +36,21 @@ export const FileManager: React.FC<FileManagerProps> = ({
   onDeleteFile,
   onRenameFolder,
   onDeleteFolder,
+  downloadingFileId = null,
+  isUploading = false,
+  uploadingFileName = null,
 }) => {
   const [renameTarget, setRenameTarget] = useState<{ type: 'file' | 'folder'; item: FileRecord | Folder } | null>(null);
   const [renameInput, setRenameInput] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'file' | 'folder'; item: FileRecord | Folder } | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [activeDownloadMenuId, setActiveDownloadMenuId] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = () => setActiveDownloadMenuId(null);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 B';
@@ -190,23 +203,81 @@ export const FileManager: React.FC<FileManagerProps> = ({
           ))}
         </nav>
 
-        {/* Hidden native file input trigger */}
-        <label className="cursor-pointer inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-medium text-xs shadow-md shadow-blue-600/20 transition-all">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-          </svg>
-          <span>Upload File</span>
-          <input
-            type="file"
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files && e.target.files[0]) {
-                onUploadFile(e.target.files[0]);
-              }
-            }}
-          />
-        </label>
+        <div className="flex items-center gap-2">
+          {/* Location Selection Mode Badge */}
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300">
+            <svg className="w-3.5 h-3.5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+            </svg>
+            <span className="text-[11px]">Choose Save Location</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          </div>
+
+          {/* Upload Button with In-Flight Loading Animation */}
+          <label className={`cursor-pointer inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl font-medium text-xs shadow-md transition-all ${
+            isUploading
+              ? 'bg-blue-600/60 cursor-not-allowed pointer-events-none text-blue-200'
+              : 'bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white shadow-blue-600/20'
+          }`}>
+            {isUploading ? (
+              <>
+                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                <span>Uploading...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                <span>Upload File</span>
+              </>
+            )}
+            <input
+              type="file"
+              disabled={isUploading}
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  onUploadFile(e.target.files[0]);
+                }
+              }}
+            />
+          </label>
+        </div>
       </div>
+
+      {/* Uploading In-Flight Progress Banner */}
+      {isUploading && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-950/60 via-indigo-950/40 to-slate-900 border border-blue-500/30 shadow-lg shadow-blue-500/10 space-y-2.5">
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="relative flex h-3 w-3 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+              </span>
+              <span className="font-semibold text-white">Uploading & Ingesting File</span>
+              {uploadingFileName && (
+                <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono text-[11px] truncate max-w-xs">
+                  {uploadingFileName}
+                </span>
+              )}
+            </div>
+            <span className="text-blue-400 text-[11px] font-mono animate-pulse">Hashing & Syncing...</span>
+          </div>
+
+          {/* Animated Shimmer Bar */}
+          <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-indigo-400 to-emerald-400 w-full animate-pulse rounded-full" />
+          </div>
+          <div className="flex items-center justify-between text-[11px] text-slate-400">
+            <span>Deduplicating CAS SHA-256 blocks</span>
+            <span>AWS S3 / Local Storage Sync</span>
+          </div>
+        </div>
+      )}
 
       {/* Drag & Drop Prompt Banner (Optional / subtle) */}
       {isDragOver && (
@@ -276,12 +347,21 @@ export const FileManager: React.FC<FileManagerProps> = ({
         </div>
 
         {loading ? (
-          <div className="p-12 text-center text-slate-500">
-            <svg className="animate-spin h-6 w-6 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-            </svg>
-            <p className="text-xs">Loading files...</p>
+          <div className="p-12 text-center text-slate-400 space-y-3">
+            <div className="relative w-12 h-12 mx-auto">
+              <div className="absolute inset-0 rounded-full border-2 border-blue-500/20 animate-ping"></div>
+              <div className="relative w-12 h-12 rounded-full border-2 border-t-blue-500 border-r-blue-400 border-b-transparent border-l-transparent animate-spin flex items-center justify-center">
+                <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+            <p className="text-sm font-medium text-slate-200">
+              {searchQuery ? `Searching cloud storage for "${searchQuery}"...` : 'Loading files...'}
+            </p>
+            <p className="text-xs text-slate-500">
+              {searchQuery ? 'Scanning database indices and storage records' : 'Syncing filesystem view'}
+            </p>
           </div>
         ) : files.length === 0 ? (
           <div className="p-16 text-center rounded-2xl bg-slate-900/40 border border-slate-800/80 space-y-3">
@@ -330,16 +410,88 @@ export const FileManager: React.FC<FileManagerProps> = ({
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {/* Download */}
-                        <button
-                          onClick={() => onDownloadFile(file)}
-                          title="Download"
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                          </svg>
-                        </button>
+                        {/* Download with Location Option & Loading Animation */}
+                        {downloadingFileId === file.id ? (
+                          <div
+                            title="Downloading file from cloud storage..."
+                            className="p-1.5 rounded-lg text-blue-400 bg-blue-500/20 border border-blue-500/30 flex items-center gap-1.5 text-xs font-medium"
+                          >
+                            <svg className="w-4 h-4 animate-spin text-blue-400" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                            </svg>
+                            <span className="text-[11px] hidden sm:inline">Saving...</span>
+                          </div>
+                        ) : (
+                          <div className="relative inline-flex items-center rounded-lg border border-slate-800 bg-slate-900/60 hover:border-slate-700">
+                            {/* Primary Button: Prompt Location & Save */}
+                            <button
+                              onClick={() => onDownloadFile(file, true)}
+                              title="Download (Choose location & save)"
+                              className="p-1.5 rounded-l-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                              </svg>
+                            </button>
+
+                            {/* Dropdown Chevron for Download Options */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveDownloadMenuId(activeDownloadMenuId === file.id ? null : file.id);
+                              }}
+                              title="Download destination options"
+                              className="px-1 py-1.5 border-l border-slate-800 rounded-r-lg text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+                            >
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </button>
+
+                            {/* Options Dropdown Menu */}
+                            {activeDownloadMenuId === file.id && (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute right-0 top-full mt-1.5 w-60 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl p-1.5 z-50 space-y-1 text-left text-xs"
+                              >
+                                <div className="px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider text-slate-400 border-b border-slate-800/80">
+                                  Download Options
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    setActiveDownloadMenuId(null);
+                                    onDownloadFile(file, true);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-slate-200 hover:text-white hover:bg-blue-600/20 text-left transition-colors"
+                                >
+                                  <svg className="w-4 h-4 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                  </svg>
+                                  <div>
+                                    <p className="font-medium text-white">Choose Save Location...</p>
+                                    <p className="text-[10px] text-slate-400">Select any folder on your computer</p>
+                                  </div>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setActiveDownloadMenuId(null);
+                                    onDownloadFile(file, false);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-slate-200 hover:text-white hover:bg-slate-800 text-left transition-colors"
+                                >
+                                  <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                  </svg>
+                                  <div>
+                                    <p className="font-medium text-slate-200">Direct Download</p>
+                                    <p className="text-[10px] text-slate-400">Save to default Downloads folder</p>
+                                  </div>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* Share */}
                         <button

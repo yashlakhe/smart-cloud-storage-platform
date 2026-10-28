@@ -309,7 +309,27 @@ export async function getFileDownloadLink(fileId: string): Promise<FileDownloadI
   return handleResponse<FileDownloadInfo>(response);
 }
 
-export async function downloadFileStream(fileId: string, filename: string): Promise<void> {
+export interface DownloadFileOptions {
+  mimeType?: string;
+  selectLocation?: boolean;
+  onStatusChange?: (status: 'downloading' | 'choosing_location' | 'saving' | 'complete' | 'cancelled') => void;
+}
+
+export interface DownloadResult {
+  success: boolean;
+  cancelled?: boolean;
+  method: 'picker' | 'browser';
+  error?: string;
+}
+
+export async function downloadFileStream(
+  fileId: string,
+  filename: string,
+  options?: DownloadFileOptions
+): Promise<DownloadResult> {
+  const selectLocation = options?.selectLocation ?? true;
+  options?.onStatusChange?.('downloading');
+
   const response = await fetch(`${BASE_URL}/files/${fileId}/stream`, {
     method: 'GET',
     headers: getAuthHeaders(),
@@ -318,6 +338,61 @@ export async function downloadFileStream(fileId: string, filename: string): Prom
     throw new Error(`Failed to download file: HTTP ${response.status}`);
   }
   const blob = await response.blob();
+
+  // If location selection is enabled and browser supports File System Access API
+  if (selectLocation && typeof window !== 'undefined' && 'showSaveFilePicker' in window) {
+    options?.onStatusChange?.('choosing_location');
+    let handle: any = null;
+    try {
+      const ext = filename.includes('.') ? filename.split('.').pop() : '';
+      const mime = options?.mimeType || blob.type || 'application/octet-stream';
+      const pickerOpts: any = {
+        suggestedName: filename,
+      };
+      if (ext) {
+        pickerOpts.types = [
+          {
+            description: `${ext.toUpperCase()} File`,
+            accept: {
+              [mime]: [`.${ext}`],
+            },
+          },
+        ];
+      }
+      handle = await (window as any).showSaveFilePicker(pickerOpts);
+    } catch (pickerErr: any) {
+      if (pickerErr?.name === 'AbortError') {
+        options?.onStatusChange?.('cancelled');
+        return { success: false, cancelled: true, method: 'picker' };
+      }
+      // Retry once with bare suggestedName in case mime filter wasn't accepted
+      try {
+        handle = await (window as any).showSaveFilePicker({ suggestedName: filename });
+      } catch (retryErr: any) {
+        if (retryErr?.name === 'AbortError') {
+          options?.onStatusChange?.('cancelled');
+          return { success: false, cancelled: true, method: 'picker' };
+        }
+        handle = null;
+      }
+    }
+
+    if (handle) {
+      try {
+        options?.onStatusChange?.('saving');
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        options?.onStatusChange?.('complete');
+        return { success: true, method: 'picker' };
+      } catch {
+        // Fall back to browser download if writing failed
+      }
+    }
+  }
+
+  // Fallback: standard browser download via object URL
+  options?.onStatusChange?.('saving');
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -326,6 +401,8 @@ export async function downloadFileStream(fileId: string, filename: string): Prom
   link.click();
   link.parentNode?.removeChild(link);
   window.URL.revokeObjectURL(url);
+  options?.onStatusChange?.('complete');
+  return { success: true, method: 'browser' };
 }
 
 export async function renameFile(fileId: string, newFilename: string): Promise<FileRecord> {

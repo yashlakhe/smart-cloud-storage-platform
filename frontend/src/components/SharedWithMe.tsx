@@ -32,11 +32,23 @@ export const SharedWithMe: React.FC = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
-  const handleDownload = async (fileId: string, filename: string) => {
+  const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null);
+
+  const handleDownload = async (fileId: string, filename: string, selectLocation = true) => {
+    setDownloadingFileId(fileId);
     try {
-      await downloadFileStream(fileId, filename);
+      await downloadFileStream(fileId, filename, {
+        selectLocation,
+        onStatusChange: (status) => {
+          if (status === 'complete' || status === 'cancelled') {
+            setDownloadingFileId(null);
+          }
+        },
+      });
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Failed to download file');
+    } finally {
+      setDownloadingFileId(null);
     }
   };
 
@@ -114,10 +126,27 @@ export const SharedWithMe: React.FC = () => {
                   </td>
                   <td className="py-3 px-4 text-right">
                     <button
-                      onClick={() => handleDownload(item.file.id, item.file.original_filename)}
-                      className="px-3 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-500/30 text-xs font-medium transition-all"
+                      onClick={() => handleDownload(item.file.id, item.file.original_filename, true)}
+                      disabled={downloadingFileId === item.file.id}
+                      title="Download (Choose location & save)"
+                      className="px-3 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-500/30 text-xs font-medium transition-all inline-flex items-center gap-1.5 disabled:opacity-50"
                     >
-                      Download
+                      {downloadingFileId === item.file.id ? (
+                        <>
+                          <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                          </svg>
+                          <span>Downloading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                          <span>Save As...</span>
+                        </>
+                      )}
                     </button>
                   </td>
                 </tr>
