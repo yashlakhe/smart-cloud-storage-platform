@@ -32,6 +32,9 @@ def _prune_cache() -> None:
         _PREFETCH_CACHE.pop(k, None)
 
 
+_TRANSITION_MODEL_CACHE: dict[uuid.UUID, tuple[float, tuple[dict[uuid.UUID, dict[uuid.UUID, int]], dict[uuid.UUID, int]]]] = {}
+
+
 def build_markov_transition_model(
     db: Session,
     user_id: uuid.UUID,
@@ -39,10 +42,16 @@ def build_markov_transition_model(
 ) -> tuple[dict[uuid.UUID, dict[uuid.UUID, int]], dict[uuid.UUID, int]]:
     """
     Construct a first-order Markov transition frequency matrix from user's historical activity log.
+    Caches model for 60 seconds per user to eliminate redundant database recalculation.
     Returns:
       transitions: {source_file_id: {target_file_id: count}}
       file_frequencies: {file_id: total_accesses}
     """
+    now_ts = time.time()
+    if user_id in _TRANSITION_MODEL_CACHE:
+        cached_ts, cached_model = _TRANSITION_MODEL_CACHE[user_id]
+        if now_ts - cached_ts < 60.0:
+            return cached_model
     cutoff = datetime.now(timezone.utc) - timedelta(days=90)
     stmt = (
         select(ActivityLog)
@@ -81,7 +90,9 @@ def build_markov_transition_model(
         prev_file_id = cur_file_id
         prev_time = cur_time
 
-    return transitions, file_frequencies
+    result = (transitions, file_frequencies)
+    _TRANSITION_MODEL_CACHE[user_id] = (now_ts, result)
+    return result
 
 
 def get_predicted_files(

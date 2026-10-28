@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     # App Information
     APP_NAME: str = "Smart Cloud Storage Platform"
     APP_VERSION: str = "0.2.0"
-    PHASE: str = "Phase 7 Storage Intelligence Complete"
+    PHASE: str = "Enterprise Engine Active"
 
     # Database Configuration (Host default fallback)
     DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/smartcloudstorage"

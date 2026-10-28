@@ -143,8 +143,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateToTab })
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl font-bold text-white tracking-tight">Storage Dashboard</h1>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              Phase 5 Active
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Live Telemetry
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
@@ -334,7 +335,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateToTab })
                 </p>
               </div>
               <span className="px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                Phase 7 Foundation
+                Automated Lifecycle
               </span>
             </div>
 

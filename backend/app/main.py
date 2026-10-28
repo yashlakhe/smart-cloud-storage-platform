@@ -20,7 +20,7 @@ from app.api.compression import router as compression_router
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="Smart Cloud Storage Platform REST API — Phase 7 Storage Intelligence (Tiering, Prefetching, CAS Deduplication, Adaptive Compression)",
+    description="Enterprise Cloud Storage Platform REST API with Autonomous Storage Optimization, Content-Addressable Deduplication, and Access Prediction",
 )
 
 # Configure CORS restricted to frontend development origin

@@ -20,10 +20,10 @@ import type {
   CompressionAnalytics,
 } from '../services/api';
 
-type NoveltyTab = 'tiering' | 'prediction' | 'dedup' | 'compression';
+type IntelligenceTab = 'tiering' | 'prediction' | 'dedup' | 'compression';
 
 export const StorageIntelligenceView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<NoveltyTab>('tiering');
+  const [activeTab, setActiveTab] = useState<IntelligenceTab>('tiering');
 
   // Tiering state
   const [tierData, setTierData] = useState<StorageTierAnalysis | null>(null);
@@ -104,12 +104,25 @@ export const StorageIntelligenceView: React.FC = () => {
     }
   };
 
+  // Lazy load data for the active tab only (cached on tab switch)
   useEffect(() => {
-    loadTiering();
-    loadPredictions();
-    loadDedup();
-    loadCompression();
-  }, []);
+    if (activeTab === 'tiering' && !tierData) {
+      loadTiering();
+    } else if (activeTab === 'prediction' && predictions.length === 0 && !metrics) {
+      loadPredictions();
+    } else if (activeTab === 'dedup' && !dedupData) {
+      loadDedup();
+    } else if (activeTab === 'compression' && !compData) {
+      loadCompression();
+    }
+  }, [activeTab]);
+
+  const refreshActiveTab = () => {
+    if (activeTab === 'tiering') loadTiering();
+    else if (activeTab === 'prediction') loadPredictions();
+    else if (activeTab === 'dedup') loadDedup();
+    else if (activeTab === 'compression') loadCompression();
+  };
 
   const handleApplyAllTiering = async () => {
     try {
@@ -212,7 +225,7 @@ export const StorageIntelligenceView: React.FC = () => {
               <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
                 Storage Intelligence Hub
                 <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  Phase 7 Novelty
+                  Autonomous Optimization
                 </span>
               </h1>
               <p className="text-sm text-zinc-400 mt-0.5">
@@ -222,12 +235,13 @@ export const StorageIntelligenceView: React.FC = () => {
           </div>
         </div>
 
-        {/* 4-Way Tab Switcher */}
-        <div className="inline-flex p-1 rounded-xl bg-zinc-900 border border-zinc-800 self-start lg:self-auto overflow-x-auto max-w-full">
-          <button
-            onClick={() => setActiveTab('tiering')}
-            className={`px-3.5 py-2 text-xs font-medium rounded-lg transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'tiering'
+        {/* 4-Way Tab Switcher & Refresh */}
+        <div className="flex items-center gap-2.5 self-start lg:self-auto">
+          <div className="inline-flex p-1 rounded-xl bg-zinc-900 border border-zinc-800 overflow-x-auto max-w-full">
+            <button
+              onClick={() => setActiveTab('tiering')}
+              className={`px-3.5 py-2 text-xs font-medium rounded-lg transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap ${
+                activeTab === 'tiering'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                 : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
             }`}
@@ -275,6 +289,16 @@ export const StorageIntelligenceView: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
             Adaptive Compression
+          </button>
+        </div>
+          <button
+            onClick={refreshActiveTab}
+            title="Refresh active tab metrics"
+            className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white transition-all cursor-pointer shadow-sm shrink-0"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
           </button>
         </div>
       </div>
