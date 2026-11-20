@@ -31,5 +31,5 @@ databases:
     region: singapore
     plan: free
     databaseName: smartcloudstorage
-    user: postgres
+    user: smartcloudstorage_user
 
