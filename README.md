@@ -85,17 +85,23 @@ The frontend application will run at `http://localhost:5173`.
 
 ---
 
-## Running with Docker Compose
+## Running with Docker Compose (Recommended)
 
-To spin up all services (PostgreSQL, FastAPI Backend, React Frontend) in containerized mode:
+> **Important**: Ensure **Docker Desktop** is launched and running on your system before executing the compose command.
+
+To spin up all services (PostgreSQL 15, FastAPI Backend, React Frontend) in containerized mode with automatic database migrations:
 
 ```bash
+# On modern Docker CLI:
 docker compose up --build
+
+# On Windows systems with standalone Docker Compose:
+docker-compose up --build
 ```
 
 ### Docker Network Architecture
 - **`db`**: PostgreSQL 15 container (`postgres:15-alpine`) with health check (`pg_isready`).
-- **`backend`**: FastAPI backend container connecting to database at `db:5432`.
+- **`backend`**: FastAPI backend container connecting to database at `db:5432` with automatic Alembic migrations on startup.
 - **`frontend`**: React Vite container binding to `0.0.0.0:5173` for host access.
 
 ---

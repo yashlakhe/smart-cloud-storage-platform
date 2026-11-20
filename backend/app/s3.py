@@ -8,7 +8,7 @@ logger = logging.getLogger("smartcloudstorage.s3")
 
 _LAST_CHECK_TIME: float = 0.0
 _CACHED_STATUS: str | None = None
-_CACHE_TTL_SECONDS: float = 30.0
+_CACHE_TTL_SECONDS: float = 180.0
 
 
 def check_s3_connection(force_refresh: bool = False) -> str:

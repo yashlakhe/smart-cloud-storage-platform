@@ -59,28 +59,34 @@ const Dashboard: React.FC = () => {
   const [downloadToast, setDownloadToast] = useState<DownloadToastState | null>(null);
   const [uploadToast, setUploadToast] = useState<UploadToastState | null>(null);
 
-  // Fetch folders and files in current folder
-  const loadData = useCallback(async () => {
+  // Fetch folders and files in current folder with cached stats optimization
+  const loadData = useCallback(async (refreshStats = false) => {
     setLoading(true);
     try {
-      const [fetchedFolders, fetchedFiles, fetchedStats] = await Promise.all([
+      const fetchList = [
         listFolders(currentFolder ? currentFolder.id : null),
         listFiles(currentFolder ? currentFolder.id : null, searchQuery),
-        getStorageStats(),
-      ]);
-      setFolders(fetchedFolders);
-      setFiles(fetchedFiles);
-      setStats(fetchedStats);
+      ];
+      if (refreshStats || !stats) {
+        fetchList.push(getStorageStats() as unknown as Promise<Folder[]>);
+      }
+
+      const results = await Promise.all(fetchList);
+      setFolders(results[0] as Folder[]);
+      setFiles(results[1] as FileRecord[]);
+      if (results[2]) {
+        setStats(results[2] as unknown as StorageStats);
+      }
     } catch {
       // Ignore initial load network errors
     } finally {
       setLoading(false);
     }
-  }, [currentFolder, searchQuery]);
+  }, [currentFolder, searchQuery, stats]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadData(false);
+  }, [currentFolder, searchQuery]);
 
   // Navigate folder helper
   const handleNavigateFolder = (folder: Folder | null) => {
@@ -242,7 +248,7 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="h-screen bg-slate-950 text-slate-100 flex flex-col font-sans overflow-hidden">
+    <div className="h-screen bg-[#09090b] text-zinc-100 flex flex-col font-sans overflow-hidden">
       {/* Top Navigation */}
       <Navbar
         searchQuery={searchQuery}
@@ -318,34 +324,34 @@ const Dashboard: React.FC = () => {
         />
       )}
 
-      {/* New Folder Modal */}
+      {/* New Directory Modal */}
       {showNewFolderModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
-            <h3 className="text-base font-bold text-white">Create New Folder</h3>
+        <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-[#121215] border border-zinc-700 rounded-lg p-5 shadow-2xl space-y-4">
+            <h3 className="text-sm font-semibold text-zinc-100">Create Directory</h3>
             <form onSubmit={handleCreateFolder} className="space-y-4">
               <input
                 type="text"
                 required
                 autoFocus
-                placeholder="Folder name"
+                placeholder="Directory name (e.g. datasets, models)"
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500"
+                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-400"
               />
               <div className="flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowNewFolderModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white rounded-xl"
+                  className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 rounded-md"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-md shadow-blue-600/20"
+                  className="px-3 py-1.5 text-xs font-medium bg-zinc-100 hover:bg-white text-zinc-950 rounded-md transition-colors"
                 >
-                  Create Folder
+                  Create Directory
                 </button>
               </div>
             </form>
@@ -353,47 +359,47 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Floating Status HUD: Upload & Download Notifications with Live Animations */}
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-3 pointer-events-none max-w-sm w-full">
+      {/* Floating Status HUD: Upload & Download Notifications */}
+      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2.5 pointer-events-none max-w-sm w-full">
         {/* Upload Status Card */}
         {uploadToast && (
-          <div className="pointer-events-auto bg-slate-900/95 border border-slate-700/80 rounded-2xl p-4 shadow-2xl backdrop-blur-md transition-all">
-            <div className="flex items-start gap-3">
-              <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0 mt-0.5">
+          <div className="pointer-events-auto bg-[#121215] border border-zinc-700 rounded-md p-3 shadow-xl transition-all font-mono">
+            <div className="flex items-start gap-2.5">
+              <div className="p-1 rounded bg-zinc-800 text-zinc-300 shrink-0 mt-0.5">
                 {uploadToast.status === 'uploading' ? (
-                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 animate-spin text-zinc-300" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                   </svg>
                 ) : uploadToast.status === 'complete' ? (
-                  <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 ) : (
-                  <svg className="w-5 h-5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-4 h-4 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-white truncate">{uploadToast.filename}</p>
+                  <p className="text-xs font-medium text-zinc-100 truncate">{uploadToast.filename}</p>
                   <button
                     onClick={() => setUploadToast(null)}
-                    className="text-slate-400 hover:text-white text-xs ml-2"
+                    className="text-zinc-500 hover:text-zinc-200 text-xs ml-2"
                   >
                     ×
                   </button>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">
+                <p className="text-[11px] text-zinc-400 mt-0.5">
                   {uploadToast.status === 'uploading' && 'Ingesting & generating CAS hash...'}
-                  {uploadToast.status === 'complete' && 'Uploaded & verified successfully!'}
+                  {uploadToast.status === 'complete' && 'CAS reference verified & synced'}
                   {uploadToast.status === 'error' && (uploadToast.errorMsg || 'Upload failed')}
                 </p>
 
                 {uploadToast.status === 'uploading' && (
-                  <div className="mt-2.5 w-full h-1.5 bg-slate-800 rounded-full overflow-hidden relative">
-                    <div className="h-full bg-gradient-to-r from-blue-500 via-indigo-400 to-emerald-400 rounded-full w-full animate-pulse" />
+                  <div className="mt-2 w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-zinc-200 rounded-full w-full animate-pulse" />
                   </div>
                 )}
               </div>
@@ -403,52 +409,52 @@ const Dashboard: React.FC = () => {
 
         {/* Download Status Card */}
         {downloadToast && (
-          <div className="pointer-events-auto bg-slate-900/95 border border-slate-700/80 rounded-2xl p-4 shadow-2xl backdrop-blur-md transition-all">
-            <div className="flex items-start gap-3">
-              <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0 mt-0.5">
+          <div className="pointer-events-auto bg-[#121215] border border-zinc-700 rounded-md p-3 shadow-xl transition-all font-mono">
+            <div className="flex items-start gap-2.5">
+              <div className="p-1 rounded bg-zinc-800 text-zinc-300 shrink-0 mt-0.5">
                 {downloadToast.status === 'downloading' || downloadToast.status === 'saving' ? (
-                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 animate-spin text-zinc-300" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                   </svg>
                 ) : downloadToast.status === 'choosing_location' ? (
-                  <svg className="w-5 h-5 text-amber-400 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-4 h-4 text-amber-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                   </svg>
                 ) : downloadToast.status === 'complete' ? (
-                  <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 ) : (
-                  <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-4 h-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-white truncate">{downloadToast.filename}</p>
+                  <p className="text-xs font-medium text-zinc-100 truncate">{downloadToast.filename}</p>
                   <button
                     onClick={() => setDownloadToast(null)}
-                    className="text-slate-400 hover:text-white text-xs ml-2"
+                    className="text-zinc-500 hover:text-zinc-200 text-xs ml-2"
                   >
                     ×
                   </button>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  {downloadToast.status === 'downloading' && 'Fetching data from cloud storage...'}
+                <p className="text-[11px] text-zinc-400 mt-0.5">
+                  {downloadToast.status === 'downloading' && 'Streaming from storage cluster...'}
                   {downloadToast.status === 'choosing_location' && 'Select save folder in file dialog...'}
-                  {downloadToast.status === 'saving' && 'Writing file stream to disk...'}
+                  {downloadToast.status === 'saving' && 'Writing payload stream to disk...'}
                   {downloadToast.status === 'complete' &&
                     (downloadToast.method === 'picker'
-                      ? 'Saved to your selected directory!'
-                      : 'Saved to default downloads folder')}
-                  {downloadToast.status === 'cancelled' && 'Download cancelled'}
+                      ? 'Saved to specified target directory'
+                      : 'Saved to browser Downloads')}
+                  {downloadToast.status === 'cancelled' && 'Stream cancelled by user'}
                 </p>
 
                 {(downloadToast.status === 'downloading' || downloadToast.status === 'saving') && (
-                  <div className="mt-2.5 w-full h-1.5 bg-slate-800 rounded-full overflow-hidden relative">
-                    <div className="h-full bg-gradient-to-r from-blue-500 via-indigo-400 to-emerald-400 rounded-full w-full animate-pulse" />
+                  <div className="mt-2 w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-zinc-200 rounded-full w-full animate-pulse" />
                   </div>
                 )}
               </div>

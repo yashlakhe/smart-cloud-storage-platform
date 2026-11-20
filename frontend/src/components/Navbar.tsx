@@ -46,26 +46,33 @@ export const Navbar: React.FC<NavbarProps> = ({ searchQuery, onSearchChange, sta
   const isSearchActive = isSearching || localQuery !== searchQuery;
 
   return (
-    <header className="h-16 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30">
-      {/* Brand */}
+    <header className="h-14 bg-[#0c0d0e] border-b border-zinc-800 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 select-none">
+      {/* Brand & Cluster Status */}
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 00-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z" />
-          </svg>
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-md bg-zinc-900 border border-zinc-700/80 flex items-center justify-center text-zinc-100 shadow-sm">
+            <svg className="w-4 h-4 text-zinc-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7c-2 0-3 1-3 3z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12h6m-3-3v6" />
+            </svg>
+          </div>
+          <span className="font-semibold text-sm tracking-tight text-zinc-100">SmartCloud</span>
         </div>
-        <div className="hidden sm:block">
-          <span className="font-bold text-white tracking-tight">Smart Cloud</span>
-          <span className="text-xs px-2 py-0.5 ml-2 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">v0.1</span>
+
+        <div className="hidden lg:flex items-center gap-1.5 pl-3 border-l border-zinc-800 text-[11px] font-mono text-zinc-500">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          <span>ap-southeast-2</span>
+          <span className="text-zinc-700">•</span>
+          <span>CAS: SHA-256</span>
         </div>
       </div>
 
-      {/* Global Search Bar */}
+      {/* Global Search Bar (Developer Console Style) */}
       <div className="flex-1 max-w-md mx-4">
         <div className="relative">
           {isSearchActive ? (
             <svg
-              className="w-4 h-4 text-blue-400 animate-spin absolute left-3.5 top-1/2 -translate-y-1/2"
+              className="w-3.5 h-3.5 text-zinc-400 animate-spin absolute left-3 top-1/2 -translate-y-1/2"
               fill="none"
               viewBox="0 0 24 24"
             >
@@ -74,7 +81,7 @@ export const Navbar: React.FC<NavbarProps> = ({ searchQuery, onSearchChange, sta
             </svg>
           ) : (
             <svg
-              className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"
+              className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -86,53 +93,55 @@ export const Navbar: React.FC<NavbarProps> = ({ searchQuery, onSearchChange, sta
             type="text"
             value={localQuery}
             onChange={handleChange}
-            placeholder="Search files by name..."
-            className={`w-full pl-10 pr-16 py-2 bg-slate-950/60 border rounded-xl text-xs sm:text-sm text-slate-200 placeholder-slate-500 focus:outline-none transition-all ${
+            placeholder="Search files and folders..."
+            className={`w-full pl-9 pr-14 py-1.5 bg-zinc-900/60 border rounded-md text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none transition-colors ${
               isSearchActive
-                ? 'border-blue-500/80 ring-1 ring-blue-500/40 shadow-sm shadow-blue-500/20'
-                : 'border-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
+                ? 'border-zinc-500 ring-1 ring-zinc-500'
+                : 'border-zinc-800 hover:border-zinc-700 focus:border-zinc-500'
             }`}
           />
-          {localQuery && (
-            <button
-              onClick={handleClear}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-xs px-1.5 py-0.5 rounded bg-slate-800/80 hover:bg-slate-700 transition-colors"
-            >
-              Clear
-            </button>
-          )}
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            {localQuery ? (
+              <button
+                onClick={handleClear}
+                className="text-zinc-400 hover:text-zinc-200 text-[11px] px-1 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 transition-colors"
+              >
+                Clear
+              </button>
+            ) : (
+              <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono text-zinc-500 bg-zinc-800/80 border border-zinc-700/60 rounded">
+                /
+              </kbd>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Right Controls: Storage Indicator + User Badge + Logout */}
+      {/* Right Controls */}
       <div className="flex items-center gap-3">
         {stats && (
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs text-slate-300">
-            <svg className="w-3.5 h-3.5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7c-2 0-3 1-3 3z" />
-            </svg>
-            <span>{formatBytes(stats.total_bytes_used)} used</span>
+          <div className="hidden md:flex items-center gap-2 px-2.5 py-1 rounded-md bg-zinc-900/80 border border-zinc-800 text-[11px] font-mono text-zinc-400">
+            <span className="text-zinc-500">Storage:</span>
+            <span className="text-zinc-200 tabular-nums">{formatBytes(stats.total_bytes_used)}</span>
           </div>
         )}
 
-        {/* User Pill */}
-        <div className="flex items-center gap-2.5 pl-2 border-l border-slate-800">
-          <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-semibold text-blue-400">
-            {user?.full_name?.charAt(0).toUpperCase() || 'U'}
+        {/* User Account */}
+        <div className="flex items-center gap-2 pl-3 border-l border-zinc-800">
+          <div className="w-7 h-7 rounded-md bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[11px] font-mono font-medium text-zinc-300">
+            {user?.email?.charAt(0).toUpperCase() || 'U'}
           </div>
-          <div className="hidden lg:block text-left">
-            <p className="text-xs font-medium text-slate-200 leading-tight">{user?.full_name}</p>
-            <p className="text-[10px] text-slate-400 leading-tight truncate max-w-[120px]">{user?.email}</p>
+          <div className="hidden sm:block text-left text-xs leading-none">
+            <div className="font-medium text-zinc-200 truncate max-w-[120px]">{user?.full_name || 'Engineer'}</div>
+            <div className="text-[10px] font-mono text-zinc-500 truncate max-w-[120px] mt-0.5">{user?.email}</div>
           </div>
-
-          {/* Logout button */}
           <button
             onClick={logout}
-            title="Sign Out"
-            className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+            title="Sign out"
+            className="p-1.5 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded-md transition-colors ml-1"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
           </button>
         </div>
